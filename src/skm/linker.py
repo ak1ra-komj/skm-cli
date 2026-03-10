@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from skm.types import AgentsConfig
@@ -20,7 +21,7 @@ def resolve_target_agents(
     return dict(known_agents)
 
 
-def link_skill(skill_src: Path, skill_name: str, agent_skills_dir: str) -> Path:
+def link_skill(skill_src: Path, skill_name: str, agent_skills_dir: str, force: bool = False) -> Path:
     """Create a symlink from agent_skills_dir/skill_name -> skill_src."""
     target_dir = Path(agent_skills_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -32,7 +33,13 @@ def link_skill(skill_src: Path, skill_name: str, agent_skills_dir: str) -> Path:
         link_path.unlink()
 
     if link_path.exists():
-        raise FileExistsError(f"{link_path} exists and is not a symlink")
+        if force:
+            if link_path.is_dir():
+                shutil.rmtree(link_path)
+            else:
+                link_path.unlink()
+        else:
+            raise FileExistsError(f'{link_path} exists and is not a symlink')
 
     link_path.symlink_to(skill_src)
     return link_path
