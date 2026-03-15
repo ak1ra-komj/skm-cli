@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -88,12 +89,33 @@ class DetectedSkill(BaseModel):
 
 # --- Constants ---
 
-KNOWN_AGENTS: dict[str, str] = {
+_KNOWN_AGENTS_DEFAULTS: dict[str, str] = {
     'standard': '~/.agents/skills',
     'claude': '~/.claude/skills',
     'codex': '~/.codex/skills',
     'openclaw': '~/.openclaw/skills',
 }
+
+# Env vars that override per-agent skill directory base.
+# If set, the agent's skill dir becomes $ENV_VAR/skills.
+_AGENT_ENV_OVERRIDES: dict[str, str] = {
+    'claude': 'CLAUDE_CONFIG_DIR',
+    'codex': 'CODEX_HOME',
+}
+
+
+def _get_known_agents() -> dict[str, str]:
+    """Return known agents dict, applying env-var overrides where set."""
+
+    result = dict(_KNOWN_AGENTS_DEFAULTS)
+    for agent, env_var in _AGENT_ENV_OVERRIDES.items():
+        val = os.environ.get(env_var)
+        if val:
+            result[agent] = str(Path(val).expanduser() / 'skills')
+    return result
+
+
+KNOWN_AGENTS: dict[str, str] = _get_known_agents()
 
 # Per-agent install options. Agents not listed here use defaults (symlink).
 # Options:
