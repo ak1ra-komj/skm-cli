@@ -99,19 +99,20 @@ class TestInstall:
         assert 'my-skill' in result.output
 
         # Verify links created for all agents
-        for agent in ['claude', 'codex', 'standard']:
+        for agent in ['claude', 'codex', 'pi']:
             link = tmp_path / 'agents' / agent / 'my-skill'
             assert link.is_symlink(), f'Missing symlink for {agent}'
-        # openclaw uses hardlinks (directory with hardlinked files)
-        openclaw_link = tmp_path / 'agents' / 'openclaw' / 'my-skill'
-        assert openclaw_link.is_dir() and not openclaw_link.is_symlink(), 'Missing hardlinked dir for openclaw'
+        # standard and openclaw use hardlinks (directory with hardlinked files)
+        for agent in ['standard', 'openclaw']:
+            hardlink = tmp_path / 'agents' / agent / 'my-skill'
+            assert hardlink.is_dir() and not hardlink.is_symlink(), f'Missing hardlinked dir for {agent}'
 
         # Verify lock file
         lock = _load_lock(tmp_path)
         assert len(lock['skills']) == 1
         assert lock['skills'][0]['name'] == 'my-skill'
         assert lock['skills'][0]['repo'] == str(repo)
-        assert len(lock['skills'][0]['linked_to']) == 4
+        assert len(lock['skills'][0]['linked_to']) == 5
 
     def test_install_multiple_skills_from_one_repo(self, tmp_path):
         repo = _make_skill_repo(
@@ -187,6 +188,7 @@ class TestInstall:
         assert result.exit_code == 0, result.output
         assert (tmp_path / 'agents' / 'claude' / 'my-skill').is_symlink()
         assert (tmp_path / 'agents' / 'codex' / 'my-skill').is_symlink()
+        assert (tmp_path / 'agents' / 'pi' / 'my-skill').is_symlink()
         assert not (tmp_path / 'agents' / 'openclaw' / 'my-skill').exists()
         assert not (tmp_path / 'agents' / 'standard' / 'my-skill').exists()
 

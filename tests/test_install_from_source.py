@@ -103,7 +103,7 @@ class TestInstallFromLocalPath:
         with patch('skm.cli.interactive_multi_select') as mock_select:
             mock_select.side_effect = [
                 [0, 1],  # select all skills
-                [0, 1, 2, 3],  # select all agents
+                [0, 1, 2, 3, 4],  # select all agents
             ]
             runner = CliRunner()
             result = runner.invoke(cli, [*_cli_args(tmp_path), 'install', str(repo)])
@@ -137,7 +137,7 @@ class TestInstallFromLocalPath:
         with patch('skm.cli.interactive_multi_select') as mock_select:
             mock_select.side_effect = [
                 [0, 2],  # select skill-a and skill-c only
-                [0, 1, 2, 3],  # all agents
+                [0, 1, 2, 3, 4],  # all agents
             ]
             runner = CliRunner()
             result = runner.invoke(cli, [*_cli_args(tmp_path), 'install', str(repo)])
@@ -164,7 +164,7 @@ class TestInstallFromSourceWithSkillName:
         )
 
         with patch('skm.cli.interactive_multi_select') as mock_select:
-            mock_select.return_value = [0, 1, 2, 3]  # agents selection only
+            mock_select.return_value = [0, 1, 2, 3, 4]  # agents selection only
             runner = CliRunner()
             result = runner.invoke(cli, [*_cli_args(tmp_path), 'install', str(repo), 'skill-a'])
 
@@ -284,7 +284,7 @@ class TestInstallUpsertConfig:
         with patch('skm.cli.interactive_multi_select') as mock_select:
             mock_select.side_effect = [
                 [0, 1],  # select skill-a (already exists) and skill-b
-                [0, 1, 2, 3],  # all agents
+                [0, 1, 2, 3, 4],  # all agents
             ]
             runner = CliRunner()
             result = runner.invoke(cli, [*_cli_args(tmp_path), 'install', str(repo)])
@@ -386,7 +386,7 @@ class TestConfigAutoCreation:
         with patch('skm.cli.interactive_multi_select') as mock_select:
             mock_select.side_effect = [
                 [0],  # select skill
-                [0, 1, 2, 3],  # select all agents
+                [0, 1, 2, 3, 4],  # select all agents
             ]
             runner = CliRunner()
             result = runner.invoke(cli, [*_cli_args(tmp_path), 'install', str(repo)])
