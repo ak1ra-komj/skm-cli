@@ -13,7 +13,7 @@ def _agent_name_from_link(link: str) -> str | None:
     for name, base in KNOWN_AGENTS.items():
         expanded = str(Path(base).expanduser())
         # Match against both expanded and compact (~) forms
-        if expanded_link.startswith(expanded) or link.startswith(base):
+        if expanded_link.startswith(expanded):
             return name
     return None
 
