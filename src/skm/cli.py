@@ -322,6 +322,48 @@ def view(ctx, source: str):
     run_view(source=source, store_dir=ctx.obj['store_dir'])
 
 
+@cli.command()
+@click.pass_context
+def edit(ctx):
+    """Open skills.yaml in your editor."""
+    import os
+    import platform
+    import subprocess
+
+    config_path = ctx.obj['config_path']
+    if not config_path.exists():
+        raise click.ClickException(f'Config file not found: {config_path}')
+
+    editor = os.environ.get('EDITOR')
+    if editor:
+        import shutil
+        import tempfile
+
+        tmp = tempfile.NamedTemporaryFile(suffix='.yaml', delete=False)
+        tmp.close()
+        shutil.copy2(config_path, tmp.name)
+        try:
+            subprocess.call([editor, str(config_path)])
+            if shutil.which('diff'):
+                result = subprocess.run(
+                    ['diff', '--color=always', tmp.name, str(config_path)],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.stdout:
+                    click.echo(result.stdout)
+                else:
+                    click.echo('No changes.')
+        finally:
+            os.unlink(tmp.name)
+    elif platform.system() == 'Darwin':
+        subprocess.call(['open', str(config_path)])
+    elif platform.system() == 'Windows':
+        os.startfile(str(config_path))
+    else:
+        subprocess.call(['xdg-open', str(config_path)])
+
+
 @cli.command(name='list')
 @click.argument('skill_name', required=False, default=None)
 @click.option(

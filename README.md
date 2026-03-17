@@ -69,6 +69,7 @@ This detects available skills, lets you pick which ones to install (unless a spe
 | `skm list` | Show installed skills and their linked paths. |
 | `skm list --all` | Show all skills across all agent directories, marking which are managed by skm. |
 | `skm view <source>` | Browse and preview skills from a repo URL or local path without installing. |
+| `skm edit` | Open `skills.yaml` in `$EDITOR` (falls back to system default). Shows diff after editing. |
 | `skm check-updates` | Fetch remotes and show available updates (skips `local_path` packages). |
 | `skm update <skill>` | Pull latest for a skill's repo, re-detect, re-link, update lock (skips `local_path` packages). |
 
