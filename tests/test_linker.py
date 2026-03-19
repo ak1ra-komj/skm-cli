@@ -237,7 +237,7 @@ def test_select_materialization_mode_uses_reflink_across_devices(monkeypatch, tm
 
     src_a = _FakePath('src-a', 11)
     target_dir = _FakePath('target', 22)
-    monkeypatch.setattr(linker, 'fcntl', object())
+    monkeypatch.setattr(linker, 'reflink_supported', lambda: True)
 
     assert linker._select_materialization_mode(src_a, target_dir) == 'reflink'
 
@@ -260,7 +260,7 @@ def test_select_materialization_mode_uses_copy_without_fcntl(monkeypatch, tmp_pa
 
     src_path = _FakePath('src', 11)
     target_dir = _FakePath('target', 22)
-    monkeypatch.setattr(linker, 'fcntl', None)
+    monkeypatch.setattr(linker, 'reflink_supported', lambda: False)
 
     assert linker._select_materialization_mode(src_path, target_dir) == 'copy'
 

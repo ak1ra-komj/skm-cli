@@ -1,26 +1,12 @@
-import errno
 import filecmp
 import os
 import shutil
 from pathlib import Path
 from typing import Literal
 
+from skm.clonefile import clone_file, is_reflink_unsupported, reflink_supported
 from skm.types import AGENT_OPTIONS, AgentsConfig
 
-try:
-    import fcntl
-except ImportError:  # pragma: no cover - non-Unix fallback
-    fcntl = None
-
-
-_FICLONE = 0x40049409
-_REFLINK_UNSUPPORTED_ERRNOS = {
-    errno.ENOTSUP,
-    getattr(errno, 'EOPNOTSUPP', errno.ENOTSUP),
-    getattr(errno, 'ENOSYS', errno.ENOTSUP),
-    getattr(errno, 'ENOTTY', errno.ENOTSUP),
-    getattr(errno, 'EXDEV', errno.ENOTSUP),
-}
 MaterializationMode = Literal['hardlink', 'reflink', 'copy']
 
 
@@ -47,13 +33,8 @@ def resolve_target_agents(
 
 
 def _clone_file_reflink(src: Path, dst: Path) -> None:
-    """Clone a file using reflink/COW copy when supported."""
-    if fcntl is None:
-        raise OSError(errno.ENOTSUP, 'reflink is not supported on this platform')
-
-    with src.open('rb') as src_f, dst.open('wb') as dst_f:
-        fcntl.ioctl(dst_f.fileno(), _FICLONE, src_f.fileno())
-    shutil.copystat(src, dst)
+    """Clone a file using the platform's COW mechanism (see skm.clonefile)."""
+    clone_file(src, dst)
 
 
 def _copy_file(src: Path, dst: Path) -> None:
@@ -68,7 +49,7 @@ def _get_materialized_entries(path: Path) -> dict[str, Path]:
 
 def _supports_copy_fallback(exc: OSError) -> bool:
     """Return True when a reflink failure should fall back to plain copy."""
-    return exc.errno in _REFLINK_UNSUPPORTED_ERRNOS
+    return is_reflink_unsupported(exc)
 
 
 def _materialize_file(
@@ -147,7 +128,7 @@ def _select_materialization_mode(skill_src: Path, target_dir: Path) -> Materiali
     if src_dev == dst_dev:
         return 'hardlink'
 
-    if fcntl is None:
+    if not reflink_supported():
         return 'copy'
     return 'reflink'
 
