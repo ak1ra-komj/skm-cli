@@ -12,7 +12,7 @@ def parse_skill_name(skill_md_path: Path) -> str:
         raise ValueError(f'No frontmatter found in {skill_md_path}')
     for line in match.group(1).splitlines():
         if line.startswith('name:'):
-            return line.split(':', 1)[1].strip()
+            return line.split(':', 1)[1].strip().strip('\'"')
     raise ValueError(f"No 'name' field in frontmatter of {skill_md_path}")
 
 
