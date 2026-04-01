@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -5,8 +6,8 @@ from urllib.parse import urlparse
 
 import click
 
-ALLOWED_URL_RE = re.compile(r'^(https?://|git@|/)')
-SHA_RE = re.compile(r'^[0-9a-f]{7,40}$')
+ALLOWED_URL_RE = re.compile(r"^(https?://|git@|/)")
+SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def run_cmd(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -14,8 +15,16 @@ def run_cmd(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     result = subprocess.run(cmd, capture_output=True, **kwargs)
     if result.returncode != 0:
         parts = [f"Command failed: {' '.join(cmd)}"]
-        stdout = result.stdout.decode() if isinstance(result.stdout, bytes) else (result.stdout or "")
-        stderr = result.stderr.decode() if isinstance(result.stderr, bytes) else (result.stderr or "")
+        stdout = (
+            result.stdout.decode()
+            if isinstance(result.stdout, bytes)
+            else (result.stdout or "")
+        )
+        stderr = (
+            result.stderr.decode()
+            if isinstance(result.stderr, bytes)
+            else (result.stderr or "")
+        )
         if stdout.strip():
             parts.append(f"stdout: {stdout.strip()}")
         if stderr.strip():
@@ -36,7 +45,19 @@ def repo_url_to_dirname(repo_url: str) -> str:
 
 def _validate_repo_url(repo_url: str) -> None:
     if not ALLOWED_URL_RE.match(repo_url):
-        raise ValueError(f"Disallowed repo URL: {repo_url!r} (only https:// and git@ are supported)")
+        raise ValueError(
+            f"Disallowed repo URL: {repo_url!r} (only https:// and git@ are supported)"
+        )
+
+
+def _no_prompt_env() -> dict:
+    """Return an environment that prevents git from prompting for credentials.
+
+    GIT_TERMINAL_PROMPT=0 stops git from opening /dev/tty for interactive
+    prompts.  GIT_ASKPASS=echo makes any remaining ask-pass helper return an
+    empty string immediately so the operation fails fast instead of blocking.
+    """
+    return {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo"}
 
 
 def _validate_sha(sha: str) -> None:
@@ -46,12 +67,13 @@ def _validate_sha(sha: str) -> None:
 
 def clone_or_pull(repo_url: str, dest: Path) -> None:
     """Clone repo if not present, otherwise pull latest."""
+    env = _no_prompt_env()
     if dest.exists() and (dest / ".git").exists():
-        run_cmd(["git", "pull", "--ff-only"], cwd=dest)
+        run_cmd(["git", "pull", "--ff-only"], cwd=dest, env=env)
     else:
         _validate_repo_url(repo_url)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        run_cmd(["git", "clone", "--filter=blob:none", repo_url, str(dest)])
+        run_cmd(["git", "clone", "--filter=blob:none", repo_url, str(dest)], env=env)
 
 
 def get_head_commit(repo_path: Path) -> str:
@@ -64,15 +86,22 @@ def get_log_since(repo_path: Path, since_commit: str, max_count: int = 20) -> st
     """Get git log from a commit to HEAD."""
     _validate_sha(since_commit)
     result = run_cmd(
-        ["git", "log", f"{since_commit}..HEAD", "--oneline", f"--max-count={max_count}"],
-        cwd=repo_path, text=True,
+        [
+            "git",
+            "log",
+            f"{since_commit}..HEAD",
+            "--oneline",
+            f"--max-count={max_count}",
+        ],
+        cwd=repo_path,
+        text=True,
     )
     return result.stdout.strip()
 
 
 def fetch(repo_path: Path) -> None:
     """Fetch latest from remote without merging."""
-    run_cmd(["git", "fetch"], cwd=repo_path)
+    run_cmd(["git", "fetch"], cwd=repo_path, env=_no_prompt_env())
 
 
 def get_remote_head_commit(repo_path: Path) -> str:
@@ -92,12 +121,21 @@ def get_remote_head_commit(repo_path: Path) -> str:
     raise click.ClickException(f"Cannot determine remote HEAD for {repo_path}")
 
 
-def get_log_between(repo_path: Path, old_commit: str, new_commit: str, max_count: int = 20) -> str:
+def get_log_between(
+    repo_path: Path, old_commit: str, new_commit: str, max_count: int = 20
+) -> str:
     """Get git log between two commits."""
     _validate_sha(old_commit)
     _validate_sha(new_commit)
     result = run_cmd(
-        ["git", "log", f"{old_commit}..{new_commit}", "--oneline", f"--max-count={max_count}"],
-        cwd=repo_path, text=True,
+        [
+            "git",
+            "log",
+            f"{old_commit}..{new_commit}",
+            "--oneline",
+            f"--max-count={max_count}",
+        ],
+        cwd=repo_path,
+        text=True,
     )
     return result.stdout.strip()

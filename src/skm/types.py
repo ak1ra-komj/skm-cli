@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
-from pydantic import BaseModel, field_validator, model_validator
+from typing import Literal
 
+from pydantic import BaseModel, field_validator, model_validator
 
 # --- Config models (parsed from skills.yaml) ---
 
@@ -10,10 +11,12 @@ class AgentsConfig(BaseModel):
     includes: list[str] | None = None
     excludes: list[str] | None = None
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_mutual_exclusion(self):
         if self.includes is not None and self.excludes is not None:
-            raise ValueError("Cannot specify both 'includes' and 'excludes' in agents config")
+            raise ValueError(
+                "Cannot specify both 'includes' and 'excludes' in agents config"
+            )
         return self
 
 
@@ -23,10 +26,12 @@ class SkillRepoConfig(BaseModel):
     skills: list[str] | None = None
     agents: AgentsConfig | None = None
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_source(self):
         if self.repo and self.local_path:
-            raise ValueError("Cannot specify both 'repo' and 'local_path'; exactly one must be set")
+            raise ValueError(
+                "Cannot specify both 'repo' and 'local_path'; exactly one must be set"
+            )
         if not self.repo and not self.local_path:
             raise ValueError("Must specify exactly one of 'repo' or 'local_path'")
         return self
@@ -45,19 +50,22 @@ class SkillRepoConfig(BaseModel):
 class DefaultAgentsConfig(BaseModel):
     default: list[str] | None = None
 
-    @field_validator('default')
+    @field_validator("default")
     @classmethod
     def check_known_agents(cls, v: list[str] | None) -> list[str] | None:
         if v is not None:
             unknown = [a for a in v if a not in KNOWN_AGENTS]
             if unknown:
-                raise ValueError(f'Unknown agents: {unknown}. Known agents: {list(KNOWN_AGENTS.keys())}')
+                raise ValueError(
+                    f"Unknown agents: {unknown}. Known agents: {list(KNOWN_AGENTS.keys())}"
+                )
         return v
 
 
 class SkmConfig(BaseModel):
     packages: list[SkillRepoConfig]
     agents: DefaultAgentsConfig | None = None
+    link_mode: Literal["hardlink", "symlink"] | None = None
 
 
 # --- Lock file models ---
@@ -90,18 +98,18 @@ class DetectedSkill(BaseModel):
 # --- Constants ---
 
 _KNOWN_AGENTS_DEFAULTS: dict[str, str] = {
-    'standard': '~/.agents/skills',
-    'claude': '~/.claude/skills',
-    'codex': '~/.codex/skills',
-    'openclaw': '~/.openclaw/skills',
-    'pi': '~/.pi/agent/skills',
+    "standard": "~/.agents/skills",
+    "claude": "~/.claude/skills",
+    "codex": "~/.codex/skills",
+    "openclaw": "~/.openclaw/skills",
+    "pi": "~/.pi/agent/skills",
 }
 
 # Env vars that override per-agent skill directory base.
 # If set, the agent's skill dir becomes $ENV_VAR/skills.
 _AGENT_ENV_OVERRIDES: dict[str, str] = {
-    'claude': 'CLAUDE_CONFIG_DIR',
-    'codex': 'CODEX_HOME',
+    "claude": "CLAUDE_CONFIG_DIR",
+    "codex": "CODEX_HOME",
 }
 
 
@@ -112,7 +120,7 @@ def _get_known_agents() -> dict[str, str]:
     for agent, env_var in _AGENT_ENV_OVERRIDES.items():
         val = os.environ.get(env_var)
         if val:
-            result[agent] = str(Path(val).expanduser() / 'skills')
+            result[agent] = str(Path(val).expanduser() / "skills")
     return result
 
 
@@ -122,15 +130,15 @@ KNOWN_AGENTS: dict[str, str] = _get_known_agents()
 # Options:
 #   use_hardlink: bool - use hard links instead of symlinks for skill installation
 AGENT_OPTIONS: dict[str, dict] = {
-    'standard': {
-        'use_hardlink': True,
+    "standard": {
+        "use_hardlink": True,
     },
-    'openclaw': {
-        'use_hardlink': True,
+    "openclaw": {
+        "use_hardlink": True,
     },
 }
 
-CONFIG_DIR = Path('~/.config/skm').expanduser()
-CONFIG_PATH = CONFIG_DIR / 'skills.yaml'
-LOCK_PATH = CONFIG_DIR / 'skills-lock.yaml'
-STORE_DIR = Path('~/.local/share/skm/skills').expanduser()
+CONFIG_DIR = Path("~/.config/skm").expanduser()
+CONFIG_PATH = CONFIG_DIR / "skills.yaml"
+LOCK_PATH = CONFIG_DIR / "skills-lock.yaml"
+STORE_DIR = Path("~/.local/share/skm/skills").expanduser()

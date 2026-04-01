@@ -7,7 +7,7 @@ from typing import Literal
 from skm.clonefile import clone_file, is_reflink_unsupported, reflink_supported
 from skm.types import AGENT_OPTIONS, AgentsConfig
 
-MaterializationMode = Literal['hardlink', 'reflink', 'copy']
+MaterializationMode = Literal["hardlink", "reflink", "copy"]
 
 
 def _get_agent_option(agent_name: str, option: str, default=None):
@@ -27,7 +27,9 @@ def resolve_target_agents(
         return {k: v for k, v in known_agents.items() if k in agents_config.includes}
 
     if agents_config.excludes is not None:
-        return {k: v for k, v in known_agents.items() if k not in agents_config.excludes}
+        return {
+            k: v for k, v in known_agents.items() if k not in agents_config.excludes
+        }
 
     return dict(known_agents)
 
@@ -44,7 +46,11 @@ def _copy_file(src: Path, dst: Path) -> None:
 
 def _get_materialized_entries(path: Path) -> dict[str, Path]:
     """Return managed candidate entries, excluding hidden files and symlinks."""
-    return {item.name: item for item in path.iterdir() if not item.name.startswith('.') and not item.is_symlink()}
+    return {
+        item.name: item
+        for item in path.iterdir()
+        if not item.name.startswith(".") and not item.is_symlink()
+    }
 
 
 def _supports_copy_fallback(exc: OSError) -> bool:
@@ -58,13 +64,13 @@ def _materialize_file(
     mode: MaterializationMode,
 ) -> MaterializationMode:
     """Materialize a file and return the mode to keep using."""
-    if mode == 'hardlink':
+    if mode == "hardlink":
         os.link(src, dst)
-        return 'hardlink'
+        return "hardlink"
 
-    if mode == 'copy':
+    if mode == "copy":
         _copy_file(src, dst)
-        return 'copy'
+        return "copy"
 
     try:
         _clone_file_reflink(src, dst)
@@ -72,8 +78,8 @@ def _materialize_file(
         if not _supports_copy_fallback(exc):
             raise
         _copy_file(src, dst)
-        return 'copy'
-    return 'reflink'
+        return "copy"
+    return "reflink"
 
 
 def _materialize_tree(
@@ -85,7 +91,7 @@ def _materialize_tree(
     dst.mkdir(parents=True, exist_ok=True)
     current_mode = mode
     for item in src.iterdir():
-        if item.name.startswith('.') or item.is_symlink():
+        if item.name.startswith(".") or item.is_symlink():
             continue
         target = dst / item.name
         if item.is_dir():
@@ -121,26 +127,41 @@ def _is_managed_materialized_dir(link_path: Path, skill_src: Path) -> bool:
     return True
 
 
-def _select_materialization_mode(skill_src: Path, target_dir: Path) -> MaterializationMode:
+def _select_materialization_mode(
+    skill_src: Path, target_dir: Path
+) -> MaterializationMode:
     """Pick hardlink on the same device, otherwise use reflink or plain copy."""
     src_dev = skill_src.stat().st_dev
     dst_dev = target_dir.stat().st_dev
     if src_dev == dst_dev:
-        return 'hardlink'
+        return "hardlink"
 
     if not reflink_supported():
-        return 'copy'
-    return 'reflink'
+        return "copy"
+    return "reflink"
 
 
 def link_skill(
-    skill_src: Path, skill_name: str, agent_skills_dir: str, force: bool = False, agent_name: str = ''
+    skill_src: Path,
+    skill_name: str,
+    agent_skills_dir: str,
+    force: bool = False,
+    agent_name: str = "",
+    link_mode_override: str | None = None,
 ) -> tuple[Path, str]:
     """Create a symlink (or hardlink tree) from agent_skills_dir/skill_name -> skill_src.
 
     Returns (link_path, status) where status is "new", "exists", or "replaced".
+
+    link_mode_override: when set to 'hardlink' or 'symlink', overrides the per-agent
+    AGENT_OPTIONS setting for this call.
     """
-    use_hardlink = _get_agent_option(agent_name, 'use_hardlink', False)
+    if link_mode_override == "hardlink":
+        use_hardlink = True
+    elif link_mode_override == "symlink":
+        use_hardlink = False
+    else:
+        use_hardlink = _get_agent_option(agent_name, "use_hardlink", False)
     target_dir = Path(agent_skills_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     link_path = target_dir / skill_name
@@ -152,26 +173,26 @@ def link_skill(
             if _is_managed_materialized_dir(link_path, skill_src):
                 # Already managed, refresh to pick up any changes.
                 _materialize_tree(skill_src, link_path, mode)
-                return (link_path, 'exists')
+                return (link_path, "exists")
             if not force:
-                raise FileExistsError(f'{link_path} exists and is not a managed copy')
+                raise FileExistsError(f"{link_path} exists and is not a managed copy")
             shutil.rmtree(link_path)
             _materialize_tree(skill_src, link_path, mode)
-            return (link_path, 'replaced')
+            return (link_path, "replaced")
         elif link_path.is_symlink():
             # Switching from symlink to a materialized copy.
             link_path.unlink()
 
         _materialize_tree(skill_src, link_path, mode)
-        return (link_path, 'new')
+        return (link_path, "new")
 
     # Symlink mode (default)
     if link_path.is_symlink():
         if link_path.resolve() == skill_src.resolve():
-            return (link_path, 'exists')
+            return (link_path, "exists")
         link_path.unlink()
         link_path.symlink_to(skill_src)
-        return (link_path, 'replaced')
+        return (link_path, "replaced")
 
     if link_path.exists():
         if force:
@@ -180,10 +201,10 @@ def link_skill(
             else:
                 link_path.unlink()
         else:
-            raise FileExistsError(f'{link_path} exists and is not a symlink')
+            raise FileExistsError(f"{link_path} exists and is not a symlink")
 
     link_path.symlink_to(skill_src)
-    return (link_path, 'new')
+    return (link_path, "new")
 
 
 def unlink_skill(skill_name: str, agent_skills_dir: str) -> None:

@@ -27,6 +27,7 @@ packages = ["src/skm"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = ["network: tests that require network access"]
+addopts = ["-m", "not network"]
 
 [dependency-groups]
 dev = [

@@ -32,52 +32,55 @@ packages:
   - local_path: ~/Code/my-custom-skills       # use a local directory instead of a git repo
 ```
 
-2. Run install (`skm i` for short):
+2. Run sync (`skm sync` syncs everything to match your config):
 
 ```bash
-skm install
+skm sync
 ```
 
-Skills are cloned (or symlinked from local paths) into your agent directories (`~/.claude/skills/`, `~/.codex/skills/`, etc.).
+Skills are cloned (or linked from local paths) into your agent directories (`~/.claude/skills/`, `~/.codex/skills/`, etc.).
 
-### Install from a source directly
+### Add skills from a source directly
 
-You can also install skills directly from a repo URL or local path — no need to edit `skills.yaml` first:
+You can also add skills directly from a repo URL or local path — no need to edit `skills.yaml` first:
 
 ```bash
-# Install from a GitHub repo (interactive skill & agent selection)
-skm install https://github.com/vercel-labs/agent-skills
+# Add from a GitHub repo (interactive skill & agent selection)
+skm add https://github.com/vercel-labs/agent-skills
 
-# Install a specific skill by name
-skm install https://github.com/vercel-labs/agent-skills vercel-react-best-practices
+# Add a specific skill by name
+skm add https://github.com/vercel-labs/agent-skills vercel-react-best-practices
 
-# Install from a local directory
-skm install ~/Code/my-custom-skills
+# Add from a local directory
+skm add ~/Code/my-custom-skills
 
 # Skip interactive prompts with --agents-includes / --agents-excludes
-skm install https://github.com/blader/humanizer --agents-includes claude,codex
+skm add https://github.com/blader/humanizer --agents-includes claude,codex
 ```
 
-This detects available skills, lets you pick which ones to install (unless a specific skill name is given), and automatically adds the package to your `skills.yaml` config.
+This detects available skills, lets you pick which ones to add (unless a specific skill name is given), and automatically updates your `skills.yaml` config, then installs the new skills.
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `skm install` (or `skm i`) | Install all packages from config. Clone repos (or link local paths), detect skills, symlink to agents, write lock file. Idempotent — also removes stale links (see below). |
-| `skm install <source> [skill]` (or `skm i`) | Install directly from a repo URL or local path without editing config. Interactively select skills and agents, then auto-update config. |
+| `skm sync` | Reconcile agent dirs to match `skills.yaml`. Clones missing repos, creates/refreshes links, removes stale links, writes lock file. Idempotent — only touches links tracked in `skills-lock.yaml`. |
+| `skm sync --update` (or `skm sync -U`) | Same as `sync`, but also pulls latest commits from all repo packages, shows changelogs, and updates commit SHAs in the lock file. |
+| `skm add <source> [skill]` (or `skm i`) | Add skills from a repo URL or local path. Interactively select skills and agents, update `skills.yaml`, then sync that package. |
 | `skm list` | Show installed skills and their linked paths. |
 | `skm list --all` | Show all skills across all agent directories, marking which are managed by skm. |
 | `skm view <source>` | Browse and preview skills from a repo URL or local path without installing. |
 | `skm edit` | Open `skills.yaml` in `$EDITOR` (falls back to system default). Shows diff after editing. |
-| `skm check-updates` | Fetch remotes and show available updates (skips `local_path` packages). |
-| `skm update <skill>` | Pull latest for a skill's repo, re-detect, re-link, update lock (skips `local_path` packages). |
+
+**To remove a skill:** delete it (or its entire package) from `skills.yaml`, then run `skm sync`. Stale links are cleaned up automatically.
 
 ## Config Format
 
 `~/.config/skm/skills.yaml`:
 
 ```yaml
+link_mode: symlink           # optional: 'hardlink' or 'symlink' — see Link Mode below
+
 agents:
   default:                   # optional: select which agents are active (omit = all)
     - claude
@@ -98,15 +101,16 @@ packages:
       - my-skill
 ```
 
-Each package must specify exactly one of `repo` or `local_path`. Local path packages use the directory directly (no cloning) and are skipped by `check-updates` and `update`.
+Each package must specify exactly one of `repo` or `local_path`. Local path packages use the directory directly (no cloning) and are not updated by `skm sync --update`.
 
-## Install Sync Behavior
+## Sync Behavior
 
-`skm install` treats `skills.yaml` as a declarative state file. Each run syncs the agent directories to match the config:
+`skm sync` treats `skills.yaml` as a declarative state file. Each run reconciles agent directories to match the config:
 
-- **New skills** are linked to agent directories.
-- **Removed skills** (dropped from a package's `skills:` list, or entire package removed) have their links deleted.
+- **New skills** (added to config) are linked to agent directories.
+- **Removed skills** (dropped from `skills:` list, or entire package removed) have their links deleted.
 - **Agent config changes** (e.g. adding `excludes: [openclaw]`) remove links from excluded agents while keeping links in others.
+- **`--update` / `-U`** additionally pulls every repo package, shows a commit changelog, and updates the lock file with new commit SHAs.
 
 Only links tracked in `skills-lock.yaml` are affected. Manually created files or skills installed by other tools in agent directories are never touched.
 
@@ -134,11 +138,15 @@ Skills are symlinked into these directories by default:
 
 When skm links a skill into an agent directory, it picks a strategy based on the agent config and filesystem:
 
-### 1. Symlink (default)
+### 0. Configured via `link_mode`
 
-A symbolic link from `<agent_dir>/skills/<skill_name>` → `<store>/<skill_name>`. This is the default for all agents. Changes in the store are immediately visible.
+Set `link_mode: symlink` or `link_mode: hardlink` at the top of `skills.yaml` to override the default for all agents globally. When unset, per-agent `AGENT_OPTIONS` apply (see below).
 
-### 2. Hardlink
+### 1. Symlink (default for most agents)
+
+A symbolic link from `<agent_dir>/skills/<skill_name>` → `<store>/<skill_name>`. This is the default for `claude`, `codex`, and `pi`. Changes in the store are immediately visible.
+
+### 2. Hardlink (default for `standard` and `openclaw`)
 
 When `use_hardlink: true` is set for an agent in `AGENT_OPTIONS`, skm creates hardlinks instead. Each file in the skill directory gets its own hardlink pointing to the same inode as the source. This only works when source and target are on the **same filesystem/device**.
 
@@ -160,13 +168,17 @@ If reflink is not available (unsupported filesystem, non-Unix platform, etc.), s
 ### Selection flow
 
 ```
-use_hardlink enabled?
-├── No  → symlink
-└── Yes → same device?
-    ├── Yes → hardlink
-    └── No  → reflink supported?
-        ├── Yes → reflink (COW clone)
-        └── No  → plain copy
+link_mode set in skills.yaml?
+├── symlink → symlink (all agents)
+├── hardlink → hardlink / reflink / copy (all agents, same flow as below)
+└── not set → per-agent AGENT_OPTIONS
+    └── use_hardlink enabled?
+        ├── No  → symlink
+        └── Yes → same device?
+            ├── Yes → hardlink
+            └── No  → reflink supported?
+                ├── Yes → reflink (COW clone)
+                └── No  → plain copy
 ```
 
 The reflink implementation is isolated in `src/skm/clonefile.py` with dedicated tests in `tests/test_clonefile.py`.
@@ -180,7 +192,7 @@ skm --config /tmp/test.yaml \
     --store /tmp/store \
     --lock /tmp/lock.yaml \
     --agents-dir /tmp/agents \
-    install
+    sync
 ```
 
 ## Key Paths

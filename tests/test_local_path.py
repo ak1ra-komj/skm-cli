@@ -1,13 +1,13 @@
 """BDD tests for local_path package support."""
-import pytest
+
 from pathlib import Path
 
-from skm.types import SkillRepoConfig, InstalledSkill, SkmConfig
-from skm.commands.install import run_install
-from skm.commands.check_updates import run_check_updates
-from skm.commands.update import run_update
+import pytest
+
+from skm.commands.sync import run_sync
 from skm.config import load_config
 from skm.lock import load_lock
+from skm.types import InstalledSkill, SkillRepoConfig, SkmConfig
 
 
 def _make_local_skills_dir(tmp_path, skills: list[str]) -> Path:
@@ -24,6 +24,7 @@ def _make_local_skills_dir(tmp_path, skills: list[str]) -> Path:
 
 
 # --- Config validation ---
+
 
 def test_config_mutual_exclusion():
     """Both repo and local_path set should raise validation error."""
@@ -62,22 +63,23 @@ def test_config_source_key():
 
 # --- Install from local_path ---
 
+
 def test_install_local_path(tmp_path):
     """Install from local_path, verify symlinks point directly to local dir."""
     local_dir = _make_local_skills_dir(tmp_path, ["my-skill", "other-skill"])
 
     config_path = tmp_path / "config" / "skills.yaml"
     config_path.parent.mkdir(parents=True)
-    config_path.write_text(
-        f"packages:\n  - local_path: {local_dir}\n"
-    )
+    config_path.write_text(f"packages:\n  - local_path: {local_dir}\n")
 
     lock_path = tmp_path / "config" / "skills-lock.yaml"
     store_dir = tmp_path / "store"
     agents = {"claude": str(tmp_path / "agents" / "claude" / "skills")}
 
     config = load_config(config_path)
-    run_install(config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents)
+    run_sync(
+        config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents
+    )
 
     # Both skills should be symlinked
     link1 = tmp_path / "agents" / "claude" / "skills" / "my-skill"
@@ -95,16 +97,16 @@ def test_install_local_path_no_clone(tmp_path):
 
     config_path = tmp_path / "config" / "skills.yaml"
     config_path.parent.mkdir(parents=True)
-    config_path.write_text(
-        f"packages:\n  - local_path: {local_dir}\n"
-    )
+    config_path.write_text(f"packages:\n  - local_path: {local_dir}\n")
 
     lock_path = tmp_path / "config" / "skills-lock.yaml"
     store_dir = tmp_path / "store"
     agents = {"claude": str(tmp_path / "agents" / "claude" / "skills")}
 
     config = load_config(config_path)
-    run_install(config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents)
+    run_sync(
+        config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents
+    )
 
     # store_dir should not be created (no cloning)
     assert not store_dir.exists()
@@ -125,7 +127,9 @@ def test_install_local_path_with_skill_filter(tmp_path):
     agents = {"claude": str(tmp_path / "agents" / "claude" / "skills")}
 
     config = load_config(config_path)
-    run_install(config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents)
+    run_sync(
+        config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents
+    )
 
     assert (tmp_path / "agents" / "claude" / "skills" / "alpha").is_symlink()
     assert not (tmp_path / "agents" / "claude" / "skills" / "beta").exists()
@@ -134,22 +138,23 @@ def test_install_local_path_with_skill_filter(tmp_path):
 
 # --- Lock file for local_path ---
 
+
 def test_lock_local_path_fields(tmp_path):
     """Lock file stores local_path and no commit for local_path packages."""
     local_dir = _make_local_skills_dir(tmp_path, ["my-skill"])
 
     config_path = tmp_path / "config" / "skills.yaml"
     config_path.parent.mkdir(parents=True)
-    config_path.write_text(
-        f"packages:\n  - local_path: {local_dir}\n"
-    )
+    config_path.write_text(f"packages:\n  - local_path: {local_dir}\n")
 
     lock_path = tmp_path / "config" / "skills-lock.yaml"
     store_dir = tmp_path / "store"
     agents = {"claude": str(tmp_path / "agents" / "claude" / "skills")}
 
     config = load_config(config_path)
-    run_install(config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents)
+    run_sync(
+        config=config, lock_path=lock_path, store_dir=store_dir, known_agents=agents
+    )
 
     lock = load_lock(lock_path)
     assert len(lock.skills) == 1
@@ -159,58 +164,35 @@ def test_lock_local_path_fields(tmp_path):
     assert skill.commit is None
 
 
-# --- Check-updates skips local_path ---
-
-def test_check_updates_skips_local_path(tmp_path, capsys):
-    """local_path skills should be skipped during check-updates."""
-    lock_path = tmp_path / "config" / "skills-lock.yaml"
-    lock_path.parent.mkdir(parents=True)
-    # Write a lock file with a local_path skill
-    lock_path.write_text(
-        "skills:\n"
-        "  - name: my-skill\n"
-        "    local_path: /some/local/path\n"
-        "    skill_path: my-skill\n"
-        "    linked_to:\n"
-        "      - ~/.claude/skills/my-skill\n"
-    )
-
-    store_dir = tmp_path / "store"
-    run_check_updates(lock_path, store_dir)
-
-    captured = capsys.readouterr()
-    assert "Skipping local path" in captured.out or "No skills installed" not in captured.out
+# --- sync --update with local_path is a no-op (no git pull) ---
 
 
-# --- Update skips local_path ---
-
-def test_update_skips_local_path(tmp_path, capsys):
-    """Updating a local_path skill should print skip message."""
+def test_sync_update_local_path_no_error(tmp_path):
+    """run_sync(update=True) on a local_path package links skills without error."""
     local_dir = _make_local_skills_dir(tmp_path, ["my-skill"])
 
-    lock_path = tmp_path / "config" / "skills-lock.yaml"
-    lock_path.parent.mkdir(parents=True)
-    from skm.utils import compact_path
-    lock_path.write_text(
-        "skills:\n"
-        f"  - name: my-skill\n"
-        f"    local_path: {compact_path(str(local_dir))}\n"
-        f"    skill_path: my-skill\n"
-        f"    linked_to:\n"
-        f"      - ~/.claude/skills/my-skill\n"
-    )
-
     config_path = tmp_path / "config" / "skills.yaml"
-    config_path.write_text(
-        f"packages:\n  - local_path: {local_dir}\n"
-    )
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(f"packages:\n  - local_path: {local_dir}\n")
 
-    config = load_config(config_path)
+    lock_path = tmp_path / "config" / "skills-lock.yaml"
     store_dir = tmp_path / "store"
     agents = {"claude": str(tmp_path / "agents" / "claude" / "skills")}
 
-    run_update(("my-skill",), False, config, lock_path, store_dir, agents)
+    config = load_config(config_path)
+    # update=True should not raise even though local_path has no git remote
+    run_sync(
+        config=config,
+        lock_path=lock_path,
+        store_dir=store_dir,
+        known_agents=agents,
+        update=True,
+    )
 
-    captured = capsys.readouterr()
-    assert "local path" in captured.out.lower()
-    assert "skipping" in captured.out.lower()
+    link = tmp_path / "agents" / "claude" / "skills" / "my-skill"
+    assert link.is_symlink()
+
+    lock = load_lock(lock_path)
+    assert len(lock.skills) == 1
+    assert lock.skills[0].local_path is not None
+    assert lock.skills[0].commit is None
