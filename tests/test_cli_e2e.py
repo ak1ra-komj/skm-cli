@@ -11,10 +11,10 @@ from pathlib import Path
 from click.testing import CliRunner
 from ruamel.yaml import YAML
 
+from skm.cli import cli
+
 _yaml = YAML()
 _yaml.default_flow_style = False
-
-from skm.cli import cli
 
 
 def _init_git_repo(path: Path) -> None:
@@ -391,14 +391,14 @@ class TestList:
         # Managed skills should show repo info or a marker
         lines = result.output.splitlines()
         # Find lines with skill names
-        skm_lines = [l for l in lines if "skm-skill" in l]
-        local_lines = [l for l in lines if "local-skill" in l]
+        skm_lines = [line for line in lines if "skm-skill" in line]
+        local_lines = [line for line in lines if "local-skill" in line]
         assert len(skm_lines) > 0
         assert len(local_lines) > 0
         # Managed skills should have some distinguishing marker (e.g. repo info)
-        assert any("repo-dist" in l or "skm" in l.lower() for l in skm_lines)
+        assert any("repo-dist" in line or "skm" in line.lower() for line in skm_lines)
         # Unmanaged should NOT have repo info
-        assert not any("repo-dist" in l for l in local_lines)
+        assert not any("repo-dist" in line for line in local_lines)
 
 
 class TestSyncUpdate:

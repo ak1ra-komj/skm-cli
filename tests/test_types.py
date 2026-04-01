@@ -1,4 +1,3 @@
-import pytest
 from skm.types import SkillRepoConfig, AgentsConfig
 
 

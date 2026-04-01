@@ -21,10 +21,10 @@ from pathlib import Path
 
 REFLINK_UNSUPPORTED_ERRNOS: set[int] = {
     errno.ENOTSUP,
-    getattr(errno, 'EOPNOTSUPP', errno.ENOTSUP),
-    getattr(errno, 'ENOSYS', errno.ENOTSUP),
-    getattr(errno, 'ENOTTY', errno.ENOTSUP),
-    getattr(errno, 'EXDEV', errno.ENOTSUP),
+    getattr(errno, "EOPNOTSUPP", errno.ENOTSUP),
+    getattr(errno, "ENOSYS", errno.ENOTSUP),
+    getattr(errno, "ENOTTY", errno.ENOTSUP),
+    getattr(errno, "EXDEV", errno.ENOTSUP),
 }
 
 _SYSTEM = platform.system()
@@ -34,7 +34,7 @@ _SYSTEM = platform.system()
 _FICLONE = 0x40049409  # from <linux/fs.h>
 _fcntl = None
 
-if _SYSTEM == 'Linux':
+if _SYSTEM == "Linux":
     try:
         import fcntl as _fcntl_mod
 
@@ -46,7 +46,7 @@ if _SYSTEM == 'Linux':
 def _clone_file_linux(src: Path, dst: Path) -> None:
     """Clone via FICLONE ioctl (Linux only)."""
     assert _fcntl is not None
-    with src.open('rb') as src_f, dst.open('wb') as dst_f:
+    with src.open("rb") as src_f, dst.open("wb") as dst_f:
         _fcntl.ioctl(dst_f.fileno(), _FICLONE, src_f.fileno())
     shutil.copystat(src, dst)
 
@@ -55,8 +55,8 @@ def _clone_file_linux(src: Path, dst: Path) -> None:
 
 _clonefile_func = None
 
-if _SYSTEM == 'Darwin':
-    _libc_path = ctypes.util.find_library('System')
+if _SYSTEM == "Darwin":
+    _libc_path = ctypes.util.find_library("System")
     if _libc_path:
         _libc = ctypes.CDLL(_libc_path, use_errno=True)
         _clonefile_func = _libc.clonefile
@@ -79,9 +79,9 @@ def _clone_file_darwin(src: Path, dst: Path) -> None:
 
 def reflink_supported() -> bool:
     """Return True if the current platform has a reflink backend available."""
-    if _SYSTEM == 'Linux':
+    if _SYSTEM == "Linux":
         return _fcntl is not None
-    if _SYSTEM == 'Darwin':
+    if _SYSTEM == "Darwin":
         return _clonefile_func is not None
     return False
 
@@ -93,12 +93,12 @@ def clone_file(src: Path, dst: Path) -> None:
     Use ``is_reflink_unsupported(exc)`` to distinguish "not supported"
     from genuine I/O errors.
     """
-    if _SYSTEM == 'Linux' and _fcntl is not None:
+    if _SYSTEM == "Linux" and _fcntl is not None:
         _clone_file_linux(src, dst)
-    elif _SYSTEM == 'Darwin' and _clonefile_func is not None:
+    elif _SYSTEM == "Darwin" and _clonefile_func is not None:
         _clone_file_darwin(src, dst)
     else:
-        raise OSError(errno.ENOTSUP, 'reflink is not supported on this platform')
+        raise OSError(errno.ENOTSUP, "reflink is not supported on this platform")
 
 
 def is_reflink_unsupported(exc: OSError) -> bool:

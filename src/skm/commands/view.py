@@ -11,7 +11,7 @@ from skm.tui import interactive_select
 
 def _find_viewer() -> str | None:
     """Find bat or less on the system."""
-    for cmd in ('bat', 'less'):
+    for cmd in ("bat", "less"):
         if shutil.which(cmd):
             return cmd
     return None
@@ -19,10 +19,10 @@ def _find_viewer() -> str | None:
 
 def _open_viewer(skill_md: Path, viewer: str | None) -> None:
     """Open a SKILL.md file for reading."""
-    if viewer == 'bat':
-        subprocess.run(['bat', '--style=plain', '--paging=always', str(skill_md)])
-    elif viewer == 'less':
-        subprocess.run(['less', str(skill_md)])
+    if viewer == "bat":
+        subprocess.run(["bat", "--style=plain", "--paging=always", str(skill_md)])
+    elif viewer == "less":
+        subprocess.run(["less", str(skill_md)])
     else:
         click.echo_via_pager(skill_md.read_text(encoding="utf-8"))
 
@@ -39,16 +39,16 @@ def run_view(source: str, store_dir: Path) -> None:
 
     skills = detect_skills(repo_path)
     if not skills:
-        click.echo('No skills found.')
+        click.echo("No skills found.")
         return
 
     viewer = _find_viewer()
-    labels = [f'{s.name}  ({s.relative_path})' for s in skills]
+    labels = [f"{s.name}  ({s.relative_path})" for s in skills]
 
     last_idx = 0
     while True:
-        idx = interactive_select(labels, header=f'Skills in {source}', initial=last_idx)
+        idx = interactive_select(labels, header=f"Skills in {source}", initial=last_idx)
         if idx is None:
             break
         last_idx = idx
-        _open_viewer(skills[idx].path / 'SKILL.md', viewer)
+        _open_viewer(skills[idx].path / "SKILL.md", viewer)

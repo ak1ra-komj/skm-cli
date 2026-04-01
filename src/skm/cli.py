@@ -2,6 +2,18 @@ from pathlib import Path
 
 import click
 
+from skm.config import load_config, save_config, upsert_package
+from skm.tui import interactive_multi_select
+from skm.types import (
+    CONFIG_PATH,
+    KNOWN_AGENTS,
+    LOCK_PATH,
+    STORE_DIR,
+    AgentsConfig,
+    SkillRepoConfig,
+    SkmConfig,
+)
+
 
 class AliasGroup(click.Group):
     """A Click group that supports hidden command aliases."""
@@ -16,19 +28,6 @@ class AliasGroup(click.Group):
     def get_command(self, ctx, cmd_name):
         cmd_name = self._aliases.get(cmd_name, cmd_name)
         return super().get_command(ctx, cmd_name)
-
-
-from skm.config import load_config, save_config, upsert_package
-from skm.tui import interactive_multi_select
-from skm.types import (
-    CONFIG_PATH,
-    KNOWN_AGENTS,
-    LOCK_PATH,
-    STORE_DIR,
-    AgentsConfig,
-    SkillRepoConfig,
-    SkmConfig,
-)
 
 
 @click.group(cls=AliasGroup)

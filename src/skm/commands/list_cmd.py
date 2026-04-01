@@ -22,11 +22,11 @@ def _format_skill(skill: InstalledSkill, verbose: bool) -> None:
     """Print a single skill entry."""
     click.echo(skill.name)
 
-    gray = dict(fg='bright_black')
-    source = skill.repo or skill.local_path or 'unknown'
-    click.echo(click.style(f'  repo: {source}', **gray))
+    gray = dict(fg="bright_black")
+    source = skill.repo or skill.local_path or "unknown"
+    click.echo(click.style(f"  repo: {source}", **gray))
     if skill.commit:
-        click.echo(click.style(f'  commit: {skill.commit[:8]}', **gray))
+        click.echo(click.style(f"  commit: {skill.commit[:8]}", **gray))
 
     # Derive agent names from linked paths
     agents = []
@@ -35,19 +35,21 @@ def _format_skill(skill: InstalledSkill, verbose: bool) -> None:
         if agent:
             agents.append(agent)
     if agents:
-        click.echo(click.style(f'  agents: {", ".join(sorted(agents))}', **gray))
+        click.echo(click.style(f"  agents: {', '.join(sorted(agents))}", **gray))
 
     if verbose:
-        click.echo(click.style(f'  skill_path: {skill.skill_path}', **gray))
+        click.echo(click.style(f"  skill_path: {skill.skill_path}", **gray))
         for link in skill.linked_to:
-            click.echo(click.style(f'  -> {compact_path(link)}', **gray))
+            click.echo(click.style(f"  -> {compact_path(link)}", **gray))
 
 
-def run_list(lock_path: Path, verbose: bool = False, skill_name: str | None = None) -> None:
+def run_list(
+    lock_path: Path, verbose: bool = False, skill_name: str | None = None
+) -> None:
     lock = load_lock(lock_path)
 
     if not lock.skills:
-        click.echo('No skills installed.')
+        click.echo("No skills installed.")
         return
 
     if skill_name:
@@ -65,7 +67,7 @@ def run_list(lock_path: Path, verbose: bool = False, skill_name: str | None = No
         _format_skill(skill, verbose)
 
     click.echo()
-    click.echo(f'Total skills: {len(lock.skills)}')
+    click.echo(f"Total skills: {len(lock.skills)}")
 
 
 def run_list_all(lock_path: Path, known_agents: dict[str, str]) -> None:
@@ -87,14 +89,14 @@ def run_list_all(lock_path: Path, known_agents: dict[str, str]) -> None:
         if not entries:
             continue
 
-        click.echo(f'[{agent_name}] {compact_path(agent_dir)}')
+        click.echo(f"[{agent_name}] {compact_path(agent_dir)}")
         for entry in entries:
             link_str = compact_path(str(entry))
             if link_str in managed_links:
                 skill = managed_links[link_str]
-                marker = click.style('skm', fg='green')
-                source = skill.repo or skill.local_path or 'unknown'
-                click.echo(f'  {entry.name}  ({marker}, {source})')
+                marker = click.style("skm", fg="green")
+                source = skill.repo or skill.local_path or "unknown"
+                click.echo(f"  {entry.name}  ({marker}, {source})")
             else:
-                click.echo(f'  {entry.name}')
+                click.echo(f"  {entry.name}")
         click.echo()

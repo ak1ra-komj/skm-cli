@@ -7,7 +7,7 @@ import pytest
 from skm.commands.sync import run_sync
 from skm.config import load_config
 from skm.lock import load_lock
-from skm.types import InstalledSkill, SkillRepoConfig, SkmConfig
+from skm.types import SkillRepoConfig
 
 
 def _make_local_skills_dir(tmp_path, skills: list[str]) -> Path:

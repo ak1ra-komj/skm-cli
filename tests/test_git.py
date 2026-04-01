@@ -6,8 +6,14 @@ from skm.git import clone_or_pull, get_head_commit, repo_url_to_dirname
 
 
 def test_repo_url_to_dirname():
-    assert repo_url_to_dirname("https://github.com/vercel-labs/agent-skills") == "github.com_vercel-labs_agent-skills"
-    assert repo_url_to_dirname("http://github.com/better-auth/skills") == "github.com_better-auth_skills"
+    assert (
+        repo_url_to_dirname("https://github.com/vercel-labs/agent-skills")
+        == "github.com_vercel-labs_agent-skills"
+    )
+    assert (
+        repo_url_to_dirname("http://github.com/better-auth/skills")
+        == "github.com_better-auth_skills"
+    )
 
 
 def test_clone_and_get_commit(tmp_path):
@@ -16,7 +22,9 @@ def test_clone_and_get_commit(tmp_path):
     src = tmp_path / "source"
     src.mkdir()
     subprocess.run(["git", "init"], cwd=src, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=src, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=src, capture_output=True
+    )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=src, capture_output=True)
     (src / "README.md").write_text("hello")
     subprocess.run(["git", "add", "."], cwd=src, capture_output=True)
@@ -50,5 +58,8 @@ def test_clone_nonexistent_repo(tmp_path):
     """Cloning a non-existent repo raises click.ClickException with stderr info."""
     dest = tmp_path / "bad-clone"
     with pytest.raises(click.ClickException) as exc_info:
-        clone_or_pull("https://github.com/this-org-does-not-exist-skm-test/nonexistent-repo-xyz", dest)
+        clone_or_pull(
+            "https://github.com/this-org-does-not-exist-skm-test/nonexistent-repo-xyz",
+            dest,
+        )
     assert "stderr:" in exc_info.value.message

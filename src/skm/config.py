@@ -15,15 +15,17 @@ _raw_cache: dict[Path, CommentedMap] = {}
 
 def load_config(config_path: Path) -> SkmConfig:
     if not config_path.exists():
-        raise FileNotFoundError(f'Config file not found: {config_path}')
+        raise FileNotFoundError(f"Config file not found: {config_path}")
 
     data = _yaml.load(config_path)
 
     if not data:
-        raise ValueError(f'Config file is empty: {config_path}')
+        raise ValueError(f"Config file is empty: {config_path}")
 
     if not isinstance(data, dict):
-        raise ValueError(f"Config must be a YAML dict with 'packages' key, got {type(data).__name__}: {config_path}")
+        raise ValueError(
+            f"Config must be a YAML dict with 'packages' key, got {type(data).__name__}: {config_path}"
+        )
 
     # Cache the raw CommentedMap for round-trip saving
     _raw_cache[config_path.resolve()] = data
@@ -48,9 +50,9 @@ def _to_commented(obj):
 
 def _raw_pkg_source_key(raw_pkg: dict) -> str:
     """Extract source key from a raw YAML package dict."""
-    if 'local_path' in raw_pkg:
-        return str(Path(raw_pkg['local_path']).expanduser())
-    return raw_pkg.get('repo', '')
+    if "local_path" in raw_pkg:
+        return str(Path(raw_pkg["local_path"]).expanduser())
+    return raw_pkg.get("repo", "")
 
 
 def _plain_equal(raw_val, new_val) -> bool:
@@ -66,7 +68,9 @@ def _plain_equal(raw_val, new_val) -> bool:
     return raw_val == new_val
 
 
-def _merge_packages(raw_packages: CommentedSeq, new_packages: list[dict]) -> CommentedSeq:
+def _merge_packages(
+    raw_packages: CommentedSeq, new_packages: list[dict]
+) -> CommentedSeq:
     """Merge new package data into raw packages, preserving original items when unchanged.
 
     Modifies raw_packages in-place to preserve ruamel.yaml formatting metadata.
@@ -112,10 +116,10 @@ def save_config(config: SkmConfig, config_path: Path) -> None:
 
     if raw is not None:
         # Merge packages preserving original raw items
-        raw['packages'] = _merge_packages(raw['packages'], new_data['packages'])
+        raw["packages"] = _merge_packages(raw["packages"], new_data["packages"])
         # Sync other top-level keys — only update if changed
         for key in new_data:
-            if key != 'packages':
+            if key != "packages":
                 if key not in raw or not _plain_equal(raw[key], new_data[key]):
                     raw[key] = _to_commented(new_data[key])
         # Remove keys that were dropped
@@ -134,7 +138,9 @@ def save_config(config: SkmConfig, config_path: Path) -> None:
     _raw_cache[resolved] = out
 
 
-def upsert_package(config: SkmConfig, new_pkg: SkillRepoConfig) -> SkillRepoConfig | None:
+def upsert_package(
+    config: SkmConfig, new_pkg: SkillRepoConfig
+) -> SkillRepoConfig | None:
     """Upsert a package into config. Returns existing package if found with skills: None, else None."""
     new_key = new_pkg.source_key
 
